@@ -39,10 +39,9 @@
 #define state_LEFT    2
 #define state_UP      3
 #define state_CENTRE  4
-#define state_T_RIGHT 5 // Twist right
-#define state_T_LEFT  6 // Twist left
-#define state_FAIL    7
-#define state_START   8
+#define state_TWIST   5 // Twist right
+#define state_FAIL    6
+#define state_START   7
 
 
 void startGame(void);
@@ -53,13 +52,14 @@ int check_switches(int);
 void display_fail(void);
 void check_state(int);
 int change_state(int);
+int change_speed(int);
 
 
 uint8_t state;  // State of LaBopit game (i.e. the button you should press)
 int8_t score;
 uint8_t player_state; // State of player (the button they pressed)
-uint32_t period;
-
+//uint32_t period;
+int speed = 300;
 
 
 
@@ -72,12 +72,11 @@ void main(void) {
 void startGame(void) {
   cli();
   clear_screen();
-  os_led_brightness(0);
 
   display_string("Get ready!");
   _delay_ms(3000);
 
-  score = -1;
+  score = 0;
   state = state_START;
   player_state = state_START;
 
@@ -89,9 +88,8 @@ void startGame(void) {
 int change_state(int s) {
   if(state == player_state) {
     display_bopit();
-    period =- 50;
+    speed -= 10;
     score++;
-    //os_edit_task_period(1, period);
   }
   else if(state != state_FAIL) {
     display_fail();
@@ -105,53 +103,33 @@ int check_switches(int s) {
   // Up button
   if (get_switch_press(_BV(SWN))) {
     player_state = state_UP;
-    if(state == state_FAIL) {
-      startGame();
-    }
 	}
 
   // Right button
 	if (get_switch_press(_BV(SWE))) {
     player_state = state_RIGHT;
-    if(state == state_FAIL) {
-      startGame();
-    }
 	}
 
   // Down button
 	if (get_switch_press(_BV(SWS))) {
     player_state = state_DOWN;
-    if(state == state_FAIL) {
-      startGame();
-    }
 	}
 
   // Left button
 	if (get_switch_press(_BV(SWW))) {
     player_state = state_LEFT;
-    if(state == state_FAIL) {
-      startGame();
-    }
 	}
 
   // Centre button
   if(get_switch_press(_BV(SWC))) {
     player_state = state_CENTRE;
-    if(state == state_FAIL) {
-      startGame();
-    }
   }
 
   // Rotary encoder
   int8_t delta = os_enc_delta();
-  if(delta < 0) {
-    // Twist left/anti-clockwise
-    player_state = state_T_LEFT;
-  }
-
-  if(delta > 0){
+  if(delta != 0){
     // Twist right/clockwise
-    player_state = state_T_RIGHT;
+    player_state = state_TWIST;
   }
 
 	return s;
@@ -163,11 +141,8 @@ void display_bopit(void) {
   //state = state_T_RIGHT;
 
   switch(state) {
-    case state_T_RIGHT:
-      display_string("TWIST RIGHT!\n");
-      break;
-    case state_T_LEFT:
-      display_string("TWIST LEFT!\n");
+    case state_TWIST:
+      display_string("TWIST IT!\n");
       break;
     case state_RIGHT:
       display_string("RIGHT!\n");
@@ -212,17 +187,31 @@ uint8_t random_state(void) {
 
   long r = rand();
 
-  return (uint8_t) r % 7;
+  return (uint8_t) r % 6;
 }
 
+int change_speed(int cnt) {
+  if(cnt % speed) {
+    cnt++;
+    return cnt;
+  }
+  /*char arr[5];
+  itoa(speed,arr,10);*/
+  change_state(cnt);
+//  LED_TOGGLE;
+  cnt = 1;
+  return cnt;
+}
 
 // Configure I/O Ports -- From Lab 1: Klaus-Peter Zauner
 void init(void) {
   os_init();
+  change_state(1);
 
+  os_add_task( change_speed, 10, 1);
   os_add_task( check_switches,  2, 1);  // Period 2ms, initial state 1?
-  period = 1000;
-  os_add_task( change_state, period, 1);
+  //period = 1000;
+  //os_add_task( change_state, period, 1);
 
 	/* 8MHz clock, no prescaling (DS, p. 48) */
 	CLKPR = (1 << CLKPCE);  // System Clock Prescale Register (for power reduction management?)
